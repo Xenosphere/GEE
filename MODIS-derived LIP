@@ -1,8 +1,8 @@
 var roi = geometry
 Map.centerObject(roi,7)
 
-// Landsat数据计算湖泊区域
-// CFMASK去云函数
+// Landsat data to calculate lake areas
+// CFMASK cloud mask
 // function cloudmasklandsat7and5and8(image) {
 //   // Bit 0 - Fill
 //   // Bit 1 - Dilated Cloud
@@ -51,13 +51,13 @@ Map.centerObject(roi,7)
 //                     var NDSI = image.normalizedDifference(['B2', 'B5']).rename('NDSI')
 //                     return NDSI.set(image.toDictionary(image.propertyNames()))
 //                   });
-// // 合并三种传感器的数据集
+// // Combining data sets from three sensors
 // var landsatimage = ee.ImageCollection(landsat5.merge(landsat7).merge(landsat8))
 //           .select('NDSI')
 //           .sort('system:time_start')
-// print('查看这段时间的数据，按照影像时间进行输出数据名称修改',landsatimage)
+// print('View the data for this time period and make output data name changes according to the image time',landsatimage)
 
-// // 计算湖泊边界，以2020年为例
+// // Calculation of lake boundaries 
 // var lake = landsatimage
 //                 .filter(ee.Filter.calendarRange(2020,2021, 'year'))
 //                 .filter(ee.Filter.calendarRange(10, 12, 'month'))
@@ -81,7 +81,7 @@ Map.centerObject(roi,7)
 
 
 
-//  MODIS数据去云
+//  MODIS cloud remove
 function bitwiseExtract(value, fromBit, toBit) {
       if (toBit === undefined)
         toBit = fromBit;
@@ -98,11 +98,11 @@ function State_MOD09GQ(image){
   return image.updateMask(mask)
 }
 
-// 加载两个MODIS数据集
+// Load two MODIS datasets
 var MOD09GQ = ee.ImageCollection('MODIS/061/MOD09GQ')
 var MYD09GQ = ee.ImageCollection("MODIS/061/MYD09GQ")
 
-// 可视化步骤
+// Visualisation 
 var dataset = MYD09GQ.merge(MYD09GQ)
                   .filter(ee.Filter.date('2020-01-15', '2020-01-23'))
                   .map(function(image){
@@ -117,7 +117,7 @@ Map.addLayer(dataset,falseColorVis,'original')
 Map.addLayer(dataset.map(State_MOD09GQ),falseColorVis,'Mask')
 
 
-// 对数据集进行重投影，并将水域设置为0，冰设置为1
+// Reprojection of the dataset with waters set to 0 and ice set to 1
 var MODIS09 = MOD09GQ.merge(MYD09GQ)
             .filterBounds(roi)
             .filterDate('2020-08-01','2021-08-01')
@@ -219,14 +219,14 @@ var interpolatedCol = ee.ImageCollection(join2Result.map(interpolateImages))
 
 // Map.addLayer(interpolatedCol,{palette:'black'},'MODIS')
 
-// 使所有modis数据进行湖泊区域掩膜
+// Lake are masking using MODIS
 var modis = interpolatedCol.map(function(image){
   var ice1 = image.select('sur_refl_b01').subtract(image.select('sur_refl_b02')).gt(0.03)
   var ice2 = image.select('sur_refl_b01').gt(0.05)
   return ice1.and(ice2).clip(roi).updateMask(lakearea).set(image.toDictionary(image.propertyNames()))
 })
 
-// print('湖冰分析结果',modis)
+// print('Lake ice phenolgy extraction results',modis)
 
 Map.addLayer(modis.filterDate('2021-01-01','2021-02-01'),{min:0,max:1,palette:['blue','white']},'MODIS')
 
@@ -265,7 +265,7 @@ function anaysisTimes(year_list){
 var year_list = modis.filterDate('2020-08-01','2021-08-01')
 var result = anaysisTimes(year_list)
 
-// 计算时间序列
+// Calculate time series
 var chart1 = ui.Chart.image.series(result, roi,ee.Reducer.mean(),10000)
               .setChartType('LineChart').setOptions({
                 interpolateNulls: true,
@@ -284,12 +284,12 @@ var chart1 = ui.Chart.image.series(result, roi,ee.Reducer.mean(),10000)
                   }}
                 });
 
-print('原始数据的时间序列',chart1);
+print('Time series of raw data',chart1);
 
-//利用FeatureCollection和ee.Reducer等函数生成时间序列的月平均列表timeSeries
+//Generate a monthly average list of time series using functions such as FeatureCollection and ee.Reducer timeSeries
 var timeSeries = ee.FeatureCollection(result.map(function(image) {
   var stats = image.reduceRegion({
-    reducer: ee.Reducer.mean(), //代表取研究区内的平均值
+    reducer: ee.Reducer.mean(), //Represents mean values taken from the study area
     geometry: roi,
     scale: 250,
     maxPixels: 1e13
@@ -302,19 +302,19 @@ var timeSeries = ee.FeatureCollection(result.map(function(image) {
   return f
 }))
 
-//将上述月平均列表timeSeries以csv格式导出至drive
+//Export the above monthly average list timeSeries in csv format to drive
 Export.table.toDrive({
-    collection: timeSeries, //列表数据集名
-    description: 'Ratio_time_series', //文件名
-    folder: 'Pool', //文件夹名
-    fileFormat: 'CSV' //文件格式
+    collection: timeSeries,
+    description: 'Ratio_time_series', 
+    folder: 'Pool', 
+    fileFormat: 'CSV' 
 })
 
 
 
-//  1.尝试计算每日两个数据集的平均值，计算时间序列并导出统计结果
+//  1.Attempt to calculate the average of two daily data sets, calculate the time series and export the statistics
 
-// // 1天平均计算
+// // 1-day average
 // var interval = 1;
 // var increment = 'day';
 // var secondDate = ee.Date('2020-08-01').advance(interval, increment).millis();
@@ -326,7 +326,7 @@ Export.table.toDrive({
 // }));
 // print('DaysMeans',DaysMeans)
 
-// // 计算区域时间序列
+// // Calculation of regional time series
 // var chart2 = ui.Chart.image.series(DaysMeans, roi,ee.Reducer.mean(),10000)
 //               .setChartType('LineChart').setOptions({
 //                 interpolateNulls: true,
@@ -335,12 +335,12 @@ Export.table.toDrive({
 //                 vAxis: {title: 'Ratio',viewWindowMode: 'explicit'}
 //                 });
 
-// print('每日平均计算后的时间序列',chart2);
+// print('Daily averaged calculated time series',chart2);
 
-// //利用FeatureCollection和ee.Reducer等函数生成时间序列的月平均列表timeSeries
+// //Generate a monthly average list of time series using functions such as FeatureCollection and ee.Reducer timeSeries
 // var timeSeries2 = ee.FeatureCollection(DaysMeans.map(function(image) {
 //   var stats = image.reduceRegion({
-//     reducer: ee.Reducer.mean(), //代表取研究区内的平均值
+//     reducer: ee.Reducer.mean(), 
 //     geometry: roi,
 //     scale: 250,
 //     maxPixels: 1e13
@@ -353,20 +353,20 @@ Export.table.toDrive({
 //   return f
 // }))
 
-// //将上述月平均列表timeSeries以csv格式导出至drive
+// //Export the above monthly average list timeSeries in csv format to drive
 // Export.table.toDrive({
-//     collection: timeSeries2, //列表数据集名
-//     description: 'Ratio_time_series2', //文件名
-//     folder: 'Pool', //文件夹名
-//     fileFormat: 'CSV' //文件格式
+//     collection: timeSeries2, 
+//     description: 'Ratio_time_series2', 
+//     folder: 'Pool', 
+//     fileFormat: 'CSV' 
 // })
 
 
-//    2.尝试使用SG滤波对计算的结果进行平滑处理，但是会出现计算超时的情况
+//    2.Tried smoothing the computed results using SG filtering, but there is a computation timeout
 
-// //              SG滤波平滑函数
+// //              SG filter smoothing function
 // //##############################################################
-// // Step-1: 选择时间间隔。每n天有一个图像
+// // Step-1: Select the time interval. One image every n days
 // //##############################################################
 // var n = 1;
 // var totalDays = ee.Date('2021-08-01').difference(ee.Date('2020-08-01'), 'day');
@@ -386,7 +386,7 @@ Export.table.toDrive({
 // var initCol = ee.ImageCollection.fromImages(initImages)
 
 // //##############################################################
-// // Step-2: 使用连接查找前后图像
+// // Step-2: Finding Before and After Images Using Connections
 // //##############################################################
 // var mergedCol = Col.merge(initCol)
 
@@ -397,8 +397,8 @@ Export.table.toDrive({
 // })
 
 
-// //指定时间窗口
-// //将其设置为在该时段内至少有一张图像
+// //Specify the time window
+// //Set it to have at least one image in that time period
 // var days = 30
 // var millis = ee.Number(days).multiply(1000*60*60*24)
 
@@ -446,18 +446,18 @@ Export.table.toDrive({
 // })
 
 // //##############################################################
-// // Step-3: 应用线性插值来填充每个图像
+// // Step-3: Apply linear interpolation to fill each image
 // //##############################################################
 
-// //一旦连接完成，我们就不需要原始图像
-// //我们只保留现在匹配图像的空白图像。
+// //Once the connection is complete, we don't need the original image
+// //We keep only the blank image that now matches the image.
 // var filtered = join2Result.filter(ee.Filter.eq('type', 'interpolated'))
 
 // var interpolatedCol = ee.ImageCollection(
 //   filtered.map(interpolateImages)).select('ratio')
 
 // //##############################################################
-// // Step-4: 应用Savitzky-Golay过滤器
+// // Step-4: Applying Savitzky-Golay Filters
 // //##############################################################
 
 // var oeel=require('users/OEEL/lib:loadAll');
@@ -488,7 +488,7 @@ Export.table.toDrive({
 // // Select the d_0_ndvi band and rename it
 // var smoothed = smoothed.select(['d_0_ratio'], ['smoothed'])
 // //##############################################################
-// // Step-5: 将结果可视化
+// // Step-5: Visualising the results
 // //##############################################################
 // // Chart the time-series at a single location
 // var title = 'Savitsky-Golay smoothing' +
@@ -514,12 +514,12 @@ Export.table.toDrive({
 //       },
 
 //     })
-// print('SG平滑后的时间序列',chart)
+// print('SG smoothed time series',chart)
 
-// //利用FeatureCollection和ee.Reducer等函数生成SAVI时间序列的月平均列表timeSeries
+// //Generate a monthly average list of SAVI time series using functions such as FeatureCollection and ee.Reducer timeSeries
 // var timeSeries = ee.FeatureCollection(Col.merge(smoothed).map(function(image) {
 //   var stats = image.reduceRegion({
-//     reducer: ee.Reducer.mean(), //代表取研究区内的平均值
+//     reducer: ee.Reducer.mean(), 
 //     geometry: roi,
 //     scale: 250,
 //     maxPixels: 1e13
@@ -532,10 +532,10 @@ Export.table.toDrive({
 //   return f
 // }))
 
-// //将上述月平均列表timeSeries以csv格式导出至drive
+// //Export the above monthly average list timeSeries in csv format to drive
 // Export.table.toDrive({
-//     collection: timeSeries, //列表数据集名
-//     description: 'Ratio_time_series3', //文件名
-//     folder: 'Pool', //文件夹名
-//     fileFormat: 'CSV' //文件格式
+//     collection: timeSeries, 
+//     description: 'Ratio_time_series3', 
+//     folder: 'Pool', 
+//     fileFormat: 'CSV' 
 // })
