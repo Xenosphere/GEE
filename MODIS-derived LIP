@@ -24,7 +24,7 @@ Map.centerObject(roi,7)
 // var LC5_BANDS = ['SR_B2','SR_B5','QA_PIXEL', 'QA_RADSAT']; //Llandsat 5
 // var STD_NAMES = ['B2','B5','QA_PIXEL', 'QA_RADSAT'];
 
-// // 对4和5波段重新命名
+// // Rename band 4 and 5
 // var landsat8 = ee.ImageCollection('LANDSAT/LC08/C02/T1_L2').select(LC8_BANDS, STD_NAMES)
 //                   .filterBounds(roi)
 //                   .filterMetadata('CLOUD_COVER', 'less_than',50)
